@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Trening Push-Pull-Legs</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        #app {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #4cae4c;
+        }
+        .hidden {
+            display: none;
+        }
+        .exercise {
+            margin-bottom: 15px;
+        }
+        .exercise label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .exercise input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .series-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .series-table th, .series-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        .series-table th {
+            background-color: #f9f9f9;
+        }
+        #history {
+            margin-top: 20px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        #history h3 {
+            margin-top: 0;
+        }
+        @media (max-width: 768px) {
+            body {
+                font-size: 14px;
+                padding: 10px;
+            }
+            #app {
+                padding: 10px;
+            }
+            button {
+                font-size: 14px;
+                padding: 12px;
+            }
+            .series-table input {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Trening Push-Pull-Legs</h1>
+
+        <div id="mode-selection">
+            <button onclick="selectMode('push')">Push</button>
+            <button onclick="selectMode('pull')">Pull</button>
+            <button onclick="selectMode('legs')">Legs</button>
+        </div>
+
+        <div id="exercise-list" class="hidden">
+            <h2 id="mode-title"></h2>
+            <div id="exercises"></div>
+            <button onclick="saveWorkout()">Zapisz trening</button>
+        </div>
+
+        <div id="history">
+            <h3>Historia Treningów</h3>
+            <ul id="workout-history"></ul>
+            <button onclick="exportToExcel()">Eksportuj do Excela</button>
+        </div>
+    </div>
+
+    <script>
+        const exercisesByMode = {
+            push: [
+                "Wyciskanie sztangi na ławce poziomej",
+                "Wyciskanie hantli na ławce skośnej (+30°)",
+                "Wyciskanie sztangi nad głowę (OHP)",
+                "Rozpiętki na maszynie lub z hantlami",
+                "Francuskie wyciskanie sztangi leżąc (triceps)",
+                "Prostowanie ramion na wyciągu górnym"
+            ],
+            pull: [
+                "Martwy ciąg klasyczny",
+                "Wiosłowanie sztangą w opadzie",
+                "Ściąganie drążka wyciągu górnego do klatki",
+                "Wiosłowanie hantlem jednoręcznie",
+                "Uginanie ramion ze sztangą",
+                "Uginanie ramion z supinacją hantli",
+                "Odwodzenie ramion w opadzie (tylny akton barków)"
+            ],
+            legs: [
+                "Przysiady ze sztangą na plecach",
+                "Martwy ciąg na prostych nogach",
+                "Wykroki chodzone z hantlami",
+                "Wspięcia na palce ze sztangą",
+                "Prostowanie nóg na maszynie",
+                "Uginanie nóg na maszynie leżąc"
+            ]
+        };
+
+        let currentMode = '';
+        let workoutData = JSON.parse(localStorage.getItem('workoutData')) || [];
+
+        function selectMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode-title').innerText = mode.toUpperCase();
+            const exercisesDiv = document.getElementById('exercises');
+            exercisesDiv.innerHTML = '';
+
+            exercisesByMode[mode].forEach((exercise) => {
+                const exerciseDiv = document.createElement('div');
+                exerciseDiv.className = 'exercise';
+
+                exerciseDiv.innerHTML = `
+                    <label>${exercise}</label>
+                    <input type="number" placeholder="Liczba serii" class="sets" onchange="generateSeriesTable(this, '${exercise}')" />
+                    <div id="table-${exercise}" class="series-table-container"></div>
+                `;
+
+                exercisesDiv.appendChild(exerciseDiv);
+            });
+
+            document.getElementById('mode-selection').classList.add('hidden');
+            document.getElementById('exercise-list').classList.remove('hidden');
+        }
+
+        function generateSeriesTable(input, exerciseName) {
+            const seriesCount = parseInt(input.value) || 0;
+            const container = document.getElementById(`table-${exerciseName}`);
+            container.innerHTML = '';
+
+            if (seriesCount > 0) {
+                const table = document.createElement('table');
+                table.className = 'series-table';
+
+                const header = document.createElement('tr');
+                header.innerHTML = '<th>Seria</th><th>Powtórzenia</th><th>Obciążenie (kg)</th>';
+                table.appendChild(header);
+
+                for (let i = 1; i <= seriesCount; i++) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${i}</td>
+                        <td><input type="number" class="reps" placeholder="Powtórzenia" /></td>
+                        <td><input type="number" class="weight" placeholder="Obciążenie" /></td>
+                    `;
+                    table.appendChild(row);
+                }
+
+                container.appendChild(table);
+            }
+        }
+
+        function saveWorkout() {
+            const exercisesDiv = document.getElementById('exercises');
+            const exercises = Array.from(exercisesDiv.children);
+
+            const workout = {
+                mode: currentMode,
+                date: new Date().toISOString().split('T')[0],
+                exercises: exercises.map((exercise) => {
+                    const name = exercise.querySelector('label').innerText;
+                    const rows = exercise.querySelectorAll('.series-table tr');
+                    const series = Array.from(rows).slice(1).map(row => {
+                        return {
+                            reps: row.querySelector('.reps').value,
+                            weight: row.querySelector('.weight').value
+                        };
+                    });
+
+                    return {
+                        name,
+                        series
+                    };
+                })
+            };
+
+            workoutData.push(workout);
+            localStorage.setItem('workoutData', JSON.stringify(workoutData));
+
+            document.getElementById('mode-selection').classList.remove('hidden');
+            document.getElementById('exercise-list').classList.add('hidden');
+            displayHistory();
+        }
+
+        function displayHistory() {
+            const historyDiv = document.getElementById('workout-history');
+            historyDiv.innerHTML = '';
+
+            workoutData.forEach((workout) => {
+                const workoutItem = document.createElement('li');
+                workoutItem.innerHTML = `
+                    <strong>${workout.date} - ${workout.mode.toUpperCase()}</strong>
+                    <ul>
+                        ${workout.exercises.map((ex) => `
+                            <li>${ex.name}:
+                                <ul>
+                                    ${ex.series.map((series, index) => `
+                                        <li>Seria ${index + 1}: ${series.reps} powtórzeń, ${series.weight} kg</li>
+                                    `).join('')}
+                                </ul>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                historyDiv.appendChild(workoutItem);
+            });
+        }
+
+        function exportToExcel() {
+            const csvRows = [
+                ["Data", "Tryb", "Ćwiczenie", "Seria", "Powtórzenia", "Obciążenie (kg)"]
+            ];
+
+            workoutData.forEach((workout) => {
+                workout.exercises.forEach((ex) => {
+                    ex.series.forEach((series, index) => {
+                        csvRows.push([
+                            workout.date,
+                            workout.mode,
+                            ex.name,
+                            index + 1,
+                            series.reps,
+                            series.weight
+                        ]);
+                    });
+                });
+            });
+
+            const csvContent = csvRows.map(row => row.join(",")).join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'trening_push_pull_legs.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        displayHistory();
+    </script>
+</body>
+</html>
